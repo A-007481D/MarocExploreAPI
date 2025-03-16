@@ -7,6 +7,7 @@ use App\Models\User;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Tymon\JWTAuth\Exceptions\JWTException;
 
+
 class AuthController extends Controller
 {
     public function register(Request $request)
@@ -23,7 +24,7 @@ class AuthController extends Controller
             'password' => bcrypt($validated['password']),
         ]);
 
-        return response()->json(['message' => 'User created successfully']);
+        return response()->json(['message' => 'User created successfully'], 201);
     }
 
     public function login(Request $request)
@@ -33,18 +34,20 @@ class AuthController extends Controller
             'password' => 'required|string|min:6',
         ]);
 
-        $credentials = $validated;
-
-        try {
-            // attempt to generate a token
-            if (!$token = JWTAuth::attempt($credentials)) {
-                return response()->json(['error' => 'Unauthorized'], 401);
-            }
-        } catch (JWTException $e) {
-            return response()->json(['error' => 'Could not create token: ' . $e->getMessage()], 500);
+        // Attempt to authenticate the user
+        if (!$token = auth('api')->attempt($validated)) {
+            return response()->json(['error' => 'Unauthorized: Invalid credentials'], 401);
         }
 
-        return response()->json(['token' => $token]);
+        return $this->respondWithToken($token);
     }
 
+    protected function respondWithToken($token)
+    {
+        return response()->json([
+            'access_token' => $token,
+            'token_type' => 'bearer',
+            'expires_in' => auth('api')->factory()->getTTL() * 60
+        ]);
+    }
 }
